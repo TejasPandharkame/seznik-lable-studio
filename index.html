@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>LabelStudio — Label Designer</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+  <!-- Real scannable barcodes -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <!-- QR Code generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <!-- Excel parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<div id="mobile-backdrop"></div>
+
+<div class="app-shell">
+
+  <!-- ════════ MENUBAR ════════════════════════════════════ -->
+  <header class="menubar">
+
+    <div class="menubar-brand">
+      <img src="images/logo.png" alt="Logo" class="logo-img"/>
+      <span class="brand-name">LabelStudio</span>
+    </div>
+
+    <!-- Desktop menus -->
+    <div class="menu-item desktop-only">
+      <button>File</button>
+      <div class="menu-dropdown">
+        <button id="menu-new">📄 New Label</button>
+        <button id="menu-save">💾 Save Template</button>
+        <button id="menu-load">📂 Open Template</button>
+        <div class="menu-sep"></div>
+        <button id="menu-export-img">🖼 Export PNG</button>
+      </div>
+    </div>
+    <div class="menu-item desktop-only">
+      <button>Edit</button>
+      <div class="menu-dropdown">
+        <button onclick="window._engine?.undo()">↩ Undo</button>
+        <button onclick="window._engine?.redo()">↪ Redo</button>
+        <div class="menu-sep"></div>
+        <button onclick="window._engine?.duplicateSelected()">⧉ Duplicate</button>
+        <button onclick="window._engine?.deleteSelected()">🗑 Delete</button>
+      </div>
+    </div>
+    <div class="menu-item desktop-only">
+      <button>Arrange</button>
+      <div class="menu-dropdown">
+        <button onclick="window._engine?.bringForward()">⬆ Bring Forward</button>
+        <button onclick="window._engine?.sendBackward()">⬇ Send Backward</button>
+      </div>
+    </div>
+
+    <!-- Zoom controls -->
+    <div class="zoom-controls">
+      <button class="zbtn" id="btn-zoom-out">−</button>
+      <span id="zoom-display" class="zoom-val">100%</span>
+      <button class="zbtn" id="btn-zoom-in">+</button>
+      <button class="zbtn" id="btn-zoom-fit" title="Fit">⤢</button>
+    </div>
+
+    <div class="menubar-spacer"></div>
+
+    <!-- Mobile: quick actions LEFT of burger -->
+    <div class="mobile-action-strip mobile-only">
+      <button class="mact-btn" id="btn-m-undo"    disabled>↩</button>
+      <button class="mact-btn" id="btn-m-redo"    disabled>↪</button>
+      <button class="mact-btn" id="btn-m-delete">🗑</button>
+      <button class="mact-btn" id="btn-m-preview">👁</button>
+      <button class="mact-btn accent" id="btn-m-pdf">⬇ PDF</button>
+    </div>
+
+    <!-- Burger -->
+    <button class="mact-btn burger mobile-only" id="btn-mobile-menu">☰</button>
+    <!-- Props -->
+    <button class="mact-btn mobile-only" id="btn-mobile-props">⚙</button>
+
+    <!-- Desktop PDF -->
+    <button class="tbtn accent desktop-only" id="btn-download-pdf" style="margin-left:6px;flex-shrink:0;">⬇ Download PDF</button>
+  </header>
+
+  <!-- ════════ TOOLBAR (desktop) ══════════════════════════ -->
+  <div class="toolbar desktop-only" role="toolbar">
+    <div class="tgroup">
+      <button class="tbtn" id="btn-undo" disabled>↩<span class="tl"> Undo</span></button>
+      <button class="tbtn" id="btn-redo" disabled>↪<span class="tl"> Redo</span></button>
+    </div>
+    <div class="tsep"></div>
+    <div class="tgroup">
+      <button class="tbtn" id="btn-add-text">T<span class="tl"> Text</span></button>
+      <button class="tbtn" id="btn-add-barcode">▐▌<span class="tl"> Barcode</span></button>
+      <button class="tbtn" id="btn-add-qr">⊞<span class="tl"> QR</span></button>
+      <button class="tbtn" id="btn-add-image">🖼<span class="tl"> Image</span></button>
+    </div>
+    <div class="tsep"></div>
+    <div class="tgroup">
+      <button class="tbtn" id="btn-add-rect">▭<span class="tl"> Rect</span></button>
+      <button class="tbtn" id="btn-add-roundrect">▢<span class="tl"> Round</span></button>
+      <button class="tbtn" id="btn-add-ellipse">◯<span class="tl"> Ellipse</span></button>
+      <button class="tbtn" id="btn-add-line">━<span class="tl"> Line</span></button>
+    </div>
+    <div class="tsep"></div>
+    <div class="tgroup">
+      <button class="tbtn" id="btn-bring-forward" title="Bring Forward">⬆</button>
+      <button class="tbtn" id="btn-send-backward" title="Send Backward">⬇</button>
+      <button class="tbtn" id="btn-duplicate" title="Duplicate">⧉</button>
+      <button class="tbtn" id="btn-delete" title="Delete">🗑</button>
+      <button class="tbtn" id="btn-clear" title="Clear">✕</button>
+    </div>
+    <div class="tsep"></div>
+    <div class="tgroup">
+      <button class="tbtn" id="btn-preview-pdf">👁<span class="tl"> Preview</span></button>
+      <button class="tbtn" id="btn-export-template">📤<span class="tl"> Save</span></button>
+    </div>
+  </div>
+
+  <!-- ════════ SIDEBAR ════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <button class="drawer-close mobile-only" id="btn-close-sidebar">✕</button>
+
+    <!-- Mobile-only File/Edit/Arrange sections inside drawer -->
+    <div class="mobile-only mobile-menus">
+      <div class="mm-group">
+        <div class="mm-group-title">
+          <span>📄 File</span>
+          <span class="mm-arrow">▼</span>
+        </div>
+        <div class="mm-group-body">
+          <button class="mm-btn" id="menu-new-m">New Label</button>
+          <button class="mm-btn" id="menu-save-m">Save Template</button>
+          <button class="mm-btn" id="menu-load-m">Open Template</button>
+          <button class="mm-btn" id="menu-export-img-m">Export PNG</button>
+        </div>
+      </div>
+      <div class="mm-group">
+        <div class="mm-group-title">
+          <span>✏️ Edit</span>
+          <span class="mm-arrow">▼</span>
+        </div>
+        <div class="mm-group-body">
+          <button class="mm-btn" id="menu-undo-m">↩ Undo</button>
+          <button class="mm-btn" id="menu-redo-m">↪ Redo</button>
+          <button class="mm-btn" id="menu-dup-m">Duplicate Selected</button>
+          <button class="mm-btn" id="menu-delete-m">🗑 Delete Selected</button>
+          <button class="mm-btn" id="menu-clear-m">Clear All</button>
+        </div>
+      </div>
+      <div class="mm-group">
+        <div class="mm-group-title">
+          <span>📐 Arrange</span>
+          <span class="mm-arrow">▼</span>
+        </div>
+        <div class="mm-group-body">
+          <button class="mm-btn" id="menu-fwd-m">Bring Forward</button>
+          <button class="mm-btn" id="menu-back-m">Send Backward</button>
+        </div>
+      </div>
+      <div class="divider" style="margin:8px 0;"></div>
+    </div>
+
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="design">Design</button>
+      <button class="tab-btn" data-tab="data">Data</button>
+      <button class="tab-btn" data-tab="templates">Templates</button>
+    </nav>
+
+    <div class="tab-content">
+
+      <!-- ── Design tab ──────────────────────────── -->
+      <div class="tab-panel active" id="tab-design">
+
+        <div class="section-title">Label Size (mm)</div>
+        <div class="size-presets">
+          <button class="size-preset" data-size="50x15">50×15</button>
+          <button class="size-preset" data-size="50x25">50×25</button>
+          <button class="size-preset" data-size="50x50">50×50</button>
+          <button class="size-preset" data-size="50x75">50×75</button>
+          <button class="size-preset" data-size="40x15">40×15</button>
+          <button class="size-preset" data-size="25x15">25×15</button>
+        </div>
+
+        <div class="mm-inputs">
+          <div class="mm-field">
+            <label>W (mm)</label>
+            <input type="number" id="label-width-mm" value="100" min="10" max="500" step="0.5"/>
+          </div>
+          <div class="mm-field">
+            <label>H (mm)</label>
+            <input type="number" id="label-height-mm" value="62" min="10" max="500" step="0.5"/>
+          </div>
+        </div>
+
+        <div class="orient-row">
+          <span class="orient-label">Orientation</span>
+          <button class="orient-btn active" data-orient="landscape">⬛ Landscape</button>
+          <button class="orient-btn" data-orient="portrait">▮ Portrait</button>
+        </div>
+
+        <div class="prop-row" style="margin-top:8px;">
+          <label class="prop-label">Background</label>
+          <input type="color" id="label-bg" value="#ffffff" style="flex:1;max-width:54px;"/>
+        </div>
+
+        <div class="divider"></div>
+        <div class="section-title">Add Elements</div>
+        <div class="elem-grid">
+          <button class="elem-btn" onclick="document.getElementById('btn-add-text').click()">✎ Text</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-barcode').click()">▐▌ Barcode</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-qr').click()">⊞ QR Code</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-image').click()">🖼 Image</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-rect').click()">▭ Rect</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-roundrect').click()">▢ curve</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-ellipse').click()">◯ Ellipse</button>
+          <button class="elem-btn" onclick="document.getElementById('btn-add-line').click()">━ Line</button>
+        </div>
+       
+        <footer>
+          <p>© <span class="year"></span> Seznik India. All rights reserved.</p>
+        </footer>
+      </div>
+
+      <!-- ── Data tab ─────────────────────────────── -->
+      <div class="tab-panel" id="tab-data">
+        <div class="section-title">Import CSV / Excel / JSON</div>
+        <div class="drop-zone" id="data-drop-zone">
+          <span class="drop-icon">📊</span>
+          <strong>Drop CSV, Excel, or JSON here</strong><br/>or click to browse
+        </div>
+        <input type="file" id="data-file-input" accept=".csv,.xlsx,.xls,.json" style="display:none"/>
+        <div class="divider"></div>
+        <div class="row-nav">
+          <button class="btn btn-sm" id="btn-prev-row" disabled>◀</button>
+          <span id="row-nav-info">No data</span>
+          <button class="btn btn-sm" id="btn-next-row" disabled>▶</button>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead id="data-table-head"><tr><th colspan="10" style="padding:14px;text-align:center;color:#94a3b8;">No data loaded</th></tr></thead>
+            <tbody id="data-table-body"></tbody>
+          </table>
+        </div>
+        <footer>
+          <p>© <span class="year"></span> Seznik India. All rights reserved.</p>
+        </footer> 
+      </div>
+
+      <!-- ── Templates tab ───────────────────────── -->
+      <div class="tab-panel" id="tab-templates">
+        <div class="section-title">Prebuilt Templates</div>
+        <div id="prebuilt-templates"></div>
+        <div class="divider"></div>
+        <div class="section-title">Import Template</div>
+        <div class="drop-zone" id="template-drop-zone">
+          <span class="drop-icon">📁</span>
+          <strong>Drop JSON or Image</strong><br/>.json template or background image
+        </div>
+        <input type="file" id="template-file-input" accept=".json,.png,.jpg,.jpeg,.webp" style="display:none"/>
+        <p class="hint-text" style="margin-top:6px;">Supports .json templates saved from LabelStudio, or image files as background</p>
+        <footer>
+          <p>© <span class="year"></span> Seznik India. All rights reserved.</p>
+        </footer> 
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ════════ CANVAS ═════════════════════════════════════ -->
+  <main class="canvas-area">
+    <div id="canvas-area-inner">
+      <div class="canvas-scroller">
+        <div class="canvas-wrapper" id="canvas-wrapper">
+          <canvas id="label-canvas"></canvas>
+          <div id="canvas-overlay"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ════════ PROPERTIES PANEL ═══════════════════════════ -->
+  <aside class="props-panel" id="props-panel">
+    <button class="drawer-close mobile-only" id="btn-close-props">✕</button>
+
+    <div class="panel-header">
+      <span>Properties</span>
+      <span id="selected-type-badge" class="badge" style="display:none;"></span>
+    </div>
+
+    <div class="panel-body">
+      <div id="no-selection-msg">
+        <span class="empty-icon">✦</span>
+        <span>Select an element<br/>to edit properties</span>
+      </div>
+
+      <div id="prop-panel-content" style="display:none;">
+
+        <!-- Visibility Toggle -->
+        <div class="prop-group" id="prop-group-visibility">
+          <div class="visibility-row">
+            <span class="prop-label" style="font-size:13px;font-weight:600;">Element Visible</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="prop-visible" checked/>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-hint" id="visibility-hint">Shown in PDF</span>
+          </div>
+        </div>
+
+        <!-- Position & Size -->
+        <div class="prop-group" id="prop-group-position">
+          <div class="prop-group-title">Position &amp; Size (px)</div>
+          <div class="prop-2col">
+            <div><div class="prop-mini-label">X</div><input type="number" id="prop-x" value="0"/></div>
+            <div><div class="prop-mini-label">Y</div><input type="number" id="prop-y" value="0"/></div>
+            <div><div class="prop-mini-label">W</div><input type="number" id="prop-width"  value="100" min="10"/></div>
+            <div><div class="prop-mini-label">H</div><input type="number" id="prop-height" value="40"  min="5"/></div>
+          </div>
+          <div class="prop-row">
+            <label class="prop-label">Rotation°</label>
+            <input type="number" id="prop-rotation" value="0" min="-360" max="360"/>
+          </div>
+          
+        </div>
+
+        <!-- Text content -->
+        <div class="prop-group" id="prop-group-text" style="display:none;">
+          <div class="prop-group-title">Text Content</div>
+          <textarea id="prop-text" rows="3" placeholder="Enter text…"></textarea>
+          <div class="prop-row" style="margin-top:8px;">
+            <label class="prop-label">Color</label>
+            <input type="color" id="prop-text-color" value="#000000"/>
+          </div>
+        </div>
+
+        <!-- Typography -->
+        <div class="prop-group" id="prop-group-textformat" style="display:none;">
+          <div class="prop-group-title">Typography</div>
+          <div class="prop-row">
+            <label class="prop-label">Font</label>
+            <select id="prop-font-family">
+              <!-- System Fonts -->
+              <option value="Arial">Arial</option>
+              <option value="Arial Black">Arial Black</option>
+              <option value="Bahnschrift">Bahnschrift</option>
+              <option value="Calibri">Calibri</option>
+              <option value="Cambria">Cambria</option>
+              <option value="Candara">Candara</option>
+              <option value="Comic Sans MS">Comic Sans MS</option>
+              <option value="Consolas">Consolas</option>
+              <option value="Constantia">Constantia</option>
+              <option value="Corbel">Corbel</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Ebrima">Ebrima</option>
+              <option value="Franklin Gothic Medium">Franklin Gothic Medium</option>
+              <option value="Gabriola">Gabriola</option>
+              <option value="Gadugi">Gadugi</option>
+              <option value="Georgia">Georgia</option>
+              <option value="HoloLens MDL2 Assets">HoloLens MDL2</option>
+              <option value="Impact">Impact</option>
+              <option value="Ink Free">Ink Free</option>
+              <option value="Javanese Text">Javanese Text</option>
+              <option value="Leelawadee UI">Leelawadee UI</option>
+              <option value="Lucida Console">Lucida Console</option>
+              <option value="Lucida Sans Unicode">Lucida Sans Unicode</option>
+              <option value="Malgun Gothic">Malgun Gothic</option>
+              <option value="Marlett">Marlett</option>
+              <option value="Microsoft Himalaya">Microsoft Himalaya</option>
+              <option value="Microsoft JhengHei">Microsoft JhengHei</option>
+              <option value="Microsoft New Tai Lue">Microsoft New Tai Lue</option>
+              <option value="Microsoft PhagsPa">Microsoft PhagsPa</option>
+              <option value="Microsoft Sans Serif">Microsoft Sans Serif</option>
+              <option value="Microsoft Tai Le">Microsoft Tai Le</option>
+              <option value="Microsoft YaHei">Microsoft YaHei</option>
+              <option value="Microsoft Yi Baiti">Microsoft Yi Baiti</option>
+              <option value="MingLiU-ExtB">MingLiU-ExtB</option>
+              <option value="Mongolian Baiti">Mongolian Baiti</option>
+              <option value="MS Gothic">MS Gothic</option>
+              <option value="MV Boli">MV Boli</option>
+              <option value="Myanmar Text">Myanmar Text</option>
+              <option value="Nirmala UI">Nirmala UI</option>
+              <option value="Palatino Linotype">Palatino Linotype</option>
+              <option value="Segoe MDL2 Assets">Segoe MDL2 Assets</option>
+              <option value="Segoe Print">Segoe Print</option>
+              <option value="Segoe Script">Segoe Script</option>
+              <option value="Segoe UI">Segoe UI</option>
+              <option value="Segoe UI Historic">Segoe UI Historic</option>
+              <option value="Segoe UI Emoji">Segoe UI Emoji</option>
+              <option value="Segoe UI Symbol">Segoe UI Symbol</option>
+              <option value="SimSun">SimSun</option>
+              <option value="Sitka Text">Sitka Text</option>
+              <option value="Sylfaen">Sylfaen</option>
+              <option value="Symbol">Symbol</option>
+              <option value="Tahoma">Tahoma</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Trebuchet MS">Trebuchet MS</option>
+              <option value="Verdana">Verdana</option>
+              <option value="Webdings">Webdings</option>
+              <option value="Wingdings">Wingdings</option>
+              <option value="Yu Gothic">Yu Gothic</option>
+              <!-- Google Fonts -->
+              <option value="Roboto">Roboto</option>
+              <option value="Open Sans">Open Sans</option>
+              <option value="Lato">Lato</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Poppins">Poppins</option>
+              <option value="Raleway">Raleway</option>
+              <option value="Nunito">Nunito</option>
+              <option value="Ubuntu">Ubuntu</option>
+              <option value="Merriweather">Merriweather</option>
+              <option value="Playfair Display">Playfair Display</option>
+              <option value="Oswald">Oswald</option>
+              <option value="Rubik">Rubik</option>
+              <option value="Inter">Inter</option>
+              <option value="Work Sans">Work Sans</option>
+              <option value="Fira Sans">Fira Sans</option>
+              <option value="PT Sans">PT Sans</option>
+              <option value="Source Sans Pro">Source Sans Pro</option>
+              <option value="Quicksand">Quicksand</option>
+              <option value="Barlow">Barlow</option>
+              <option value="Karla">Karla</option>
+              <option value="Libre Baskerville">Libre Baskerville</option>
+              <option value="Inconsolata">Inconsolata</option>
+              <option value="Space Grotesk">Space Grotesk</option>
+              <option value="DM Sans">DM Sans</option>
+              <option value="Manrope">Manrope</option>
+              <option value="Bebas Neue">Bebas Neue</option>
+              <option value="Anton">Anton</option>
+              <option value="Lobster">Lobster</option>
+              <option value="Pacifico">Pacifico</option>
+              <option value="Righteous">Righteous</option>
+              <option value="Permanent Marker">Permanent Marker</option>
+              <option value="Fredoka One">Fredoka One</option>
+              <option value="Press Start 2P">Press Start 2P</option>
+              <option value="Orbitron">Orbitron</option>
+              <option value="Exo 2">Exo 2</option>
+              <option value="Titillium Web">Titillium Web</option>
+              <option value="Asap">Asap</option>
+              <option value="Mukta">Mukta</option>
+              <option value="Hind">Hind</option>
+              <option value="Kanit">Kanit</option>
+              <option value="Josefin Sans">Josefin Sans</option>
+              <option value="Cabin">Cabin</option>
+              <option value="Archivo">Archivo</option>
+              <option value="Overpass">Overpass</option>
+              <option value="Prompt">Prompt</option>
+              <option value="Teko">Teko</option>
+              <option value="Rajdhani">Rajdhani</option>
+              <option value="Dosis">Dosis</option>
+              <option value="Abel">Abel</option>
+              <option value="Oxygen">Oxygen</option>
+              <option value="Crimson Text">Crimson Text</option>
+              <option value="Vollkorn">Vollkorn</option>
+              <option value="Bitter">Bitter</option>
+              <option value="Lora">Lora</option>
+              <option value="EB Garamond">EB Garamond</option>
+              <option value="Libre Caslon Text">Libre Caslon Text</option>
+              <option value="Spectral">Spectral</option>
+              <option value="Cormorant Garamond">Cormorant Garamond</option>
+              <option value="Old Standard TT">Old Standard TT</option>
+              <option value="Philosopher">Philosopher</option>
+            </select>
+          </div>
+          <div class="prop-row">
+            <label class="prop-label">Size (px)</label>
+            <input type="number" id="prop-font-size" value="18" min="6" max="200"/>
+          </div>
+          <div class="prop-row">
+            <label class="prop-label">Style</label>
+            <div class="fmt-btns">
+              <button class="fmt-btn" id="fmt-bold"          title="Bold"><b>B</b></button>
+              <button class="fmt-btn" id="fmt-italic"        title="Italic"><i>I</i></button>
+              <button class="fmt-btn" id="fmt-underline"     title="Underline"><u>U</u></button>
+              <button class="fmt-btn" id="fmt-strikethrough" title="Strikethrough"><s>S</s></button>
+            </div>
+          </div>
+          <div class="prop-row">
+            <label class="prop-label">Text Alignment</label>
+            <div class="align-btns">
+              <button class="align-btn active" data-align="left"   title="Left">⫷</button>
+              <button class="align-btn"        data-align="center" title="Center">≡</button>
+              <button class="align-btn"        data-align="right"  title="Right">⫸</button>
+            </div>
+          </div>
+          <input type="hidden" id="prop-font-weight"     value="normal"/>
+          <input type="hidden" id="prop-font-style"      value="normal"/>
+          <input type="hidden" id="prop-text-decoration" value="none"/>
+          <input type="hidden" id="prop-text-align"      value="left"/>
+        </div>
+
+        <!-- Barcode -->
+        <div class="prop-group" id="prop-group-barcode" style="display:none;">
+          <div class="prop-group-title">Barcode</div>
+          <div class="prop-row">
+            <label class="prop-label">Value</label>
+            <input type="text" id="prop-barcode-value" placeholder="123456789012"/>
+          </div>
+          <div class="prop-row">
+            <label class="prop-label">Format</label>
+            <select id="prop-barcode-format">
+              <option value="CODE128">CODE128 (universal)</option>
+              <option value="CODE39">CODE39</option>
+              <option value="EAN13">EAN-13</option>
+              <option value="EAN8">EAN-8</option>
+              <option value="ITF25">ITF-25</option>
+              <option value="UPC_A">UPC-A</option>
+            </select>
+          </div>
+          <label class="inline-label"><input type="checkbox" id="prop-barcode-showtext" checked/> Show text below</label>
+          <p class="hint-text" style="margin-top:6px;">EAN-13 needs exactly 12-13 digits. CODE128 accepts any text.</p>
+        </div>
+
+        <!-- QR Code -->
+        <div class="prop-group" id="prop-group-qr" style="display:none;">
+          <div class="prop-group-title">QR Code</div>
+          <div class="prop-row"><label class="prop-label">Value / URL</label></div>
+          <input type="text" id="prop-qr-value" placeholder="https://example.com" style="margin-bottom:8px;"/>
+          <div class="prop-row">
+            <label class="prop-label">Error Correction</label>
+            <select id="prop-qr-type">
+              <option value="0">M — Medium (15%)</option>
+              <option value="1">L — Low (7%)</option>
+              <option value="2">H — High (30%)</option>
+              <option value="3">Q — Quartile (25%)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Shape -->
+        <div class="prop-group" id="prop-group-shape" style="display:none;">
+          <div class="prop-group-title">Shape</div>
+          <div class="prop-row"><label class="prop-label">Fill</label><input type="color" id="prop-shape-fill" value="#ffffff"/></div>
+          <div class="prop-row"><label class="prop-label">Stroke</label><input type="color" id="prop-shape-stroke" value="#000000"/></div>
+          <div class="prop-row"><label class="prop-label">Line Width</label><input type="number" id="prop-line-width" value="2" min="0.5" max="20" step="0.5"/></div>
+          <div class="prop-row"><label class="prop-label">Corner Radius</label><input type="number" id="prop-shape-radius" value="8" min="0" max="100"/></div>
+        </div>
+
+        <!-- Image -->
+        <div class="prop-group" id="prop-group-image" style="display:none;">
+          <div class="prop-group-title">Image</div>
+          <div class="prop-row">
+            <label class="prop-label">Mode</label>
+            <select id="prop-image-colormode">
+              <option value="original">Original</option>
+              <option value="gray">Grayscale</option>
+              <option value="bw">Black &amp; White</option>
+            </select>
+          </div>
+          <button class="btn btn-sm btn-block" onclick="document.getElementById('img-replace').click()">🔄 Replace Image</button>
+          <input type="file" id="img-replace" accept="image/*" style="display:none"/>
+        </div>
+
+        <!-- Data Binding -->
+        <div class="prop-group" id="binding-container" style="display:none;">
+          <div class="prop-group-title">Data Binding</div>
+          <p class="hint-text">Link to a column from imported data</p>
+          <select id="prop-binding"><option value="">-- No binding --</option></select>
+        </div>
+
+      </div>
+      </div>
+      <footer>
+        <p>© <span class="year"></span> Seznik India. All rights reserved.</p>
+      </footer>
+      <script>
+        document.querySelectorAll(".year").forEach(function(el) {
+          el.textContent = new Date().getFullYear();
+        });
+      </script>
+  </aside>
+</div>
+
+<!-- PDF Modal -->
+<div id="pdf-modal-overlay">
+  <div class="pdf-modal">
+    <div class="pdf-modal-header">
+      <h3>📄 PDF Preview</h3>
+      <div class="pdf-modal-actions">
+        <button class="btn btn-success" id="btn-modal-print">🖨️ Print PDF</button>
+        <button class="btn btn-sm" id="btn-modal-download">⬇ Download</button>
+        <button class="btn-close" id="btn-modal-close">✕</button>
+      </div>
+    </div>
+    <div class="pdf-modal-options">
+      <label class="inline-label"><input type="checkbox" id="pdf-print-all"/> Print all data rows (batch)</label>
+      <span class="hint-text" style="margin:0;">Hidden elements are excluded from PDF</span>
+    </div>
+    <div id="pdf-preview-container"></div>
+  </div>
+</div>
+
+<input type="file" id="img-upload" accept="image/*" style="display:none"/>
+
+<script src="js/canvas-engine.js"></script>
+<script src="js/data-manager.js"></script>
+<script src="js/ui-controller.js"></script>
+<script>
+  const canvas  = document.getElementById('label-canvas');
+  const overlay = document.getElementById('canvas-overlay');
+  const engine  = new CanvasEngine(canvas, overlay);
+  const dm      = new DataManager();
+  const ui      = new UIController(engine, dm);
+  window._engine = engine; window._dm = dm; window._ui = ui;
+
+  // Image replace
+  document.getElementById('img-replace')?.addEventListener('change', e => {
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=ev=>engine.updateSelected({src:ev.target.result}); r.readAsDataURL(f); e.target.value='';
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey||e.metaKey) {
+      if (e.key==='z'){e.preventDefault();engine.undo();}
+      if (e.key==='y'){e.preventDefault();engine.redo();}
+      if (e.key==='d'){e.preventDefault();engine.duplicateSelected();}
+      if (e.key==='s'){e.preventDefault();ui.exportTemplate();}
+    }
+  });
+
+  // Demo label on load
+  setTimeout(() => {
+    const W=engine.labelWidthPx, H=engine.labelHeightPx;
+    engine.addShape({shape:'roundrect',x:4,y:4,width:W-8,height:H-8,strokeColor:'#3b82f6',fillColor:'#f0f6ff',lineWidth:2,radius:12});
+    engine.addText({x:16,y:14,width:W-32,height:36,text:'MY PRODUCT',fontSize:22,fontWeight:'bold',color:'#1a1a2e',align:'center'});
+    engine.addText({x:16,y:52,width:W-32,height:18,text:'Model: PRD-001  •  SKU: 12345',fontSize:11,color:'#555',align:'center'});
+    engine.addBarcode({x:70,y:82,width:200,height:70,value:'123456789012',format:'CODE128'});
+    engine.addText({x:16,y:H-46,width:120,height:28,text:'$24.99',fontSize:17,fontWeight:'bold',color:'#e53935'});
+    engine.addQRCode({x:W-100,y:H-100,width:86,height:86,value:'https://example.com',qrType:0});
+    engine.deselect();
+  }, 400);
+</script>
+</body>
+</html>
