@@ -294,8 +294,41 @@ class UIController {
       dz.addEventListener('drop', async e => { e.preventDefault(); dz.classList.remove('drag-over'); await this._loadDataFile(e.dataTransfer.files[0]); });
       dz.addEventListener('click', () => fi?.click());
     }
-    document.getElementById('btn-prev-row')?.addEventListener('click', () => { this.dm.applyRowToCanvas(this.engine, Math.max(0,this.dm.currentRowIndex-1)); this._updateRowNav(); });
-    document.getElementById('btn-next-row')?.addEventListener('click', () => { this.dm.applyRowToCanvas(this.engine, Math.min(this.dm.importedData.length-1,this.dm.currentRowIndex+1)); this._updateRowNav(); });
+    document.getElementById('btn-prev-row')?.addEventListener('click', () => {
+      const totalSets = this.dm.columnGroups || 1;
+      let rowIdx = this.dm.currentRowIndex;
+      let setIdx = (this.dm.currentSetIndex || 0) - 1;
+      
+      if (setIdx < 0) {
+        if (rowIdx > 0) {
+          rowIdx--;
+          setIdx = totalSets - 1;
+        } else {
+          setIdx = 0;
+        }
+      }
+      
+      this.dm.applyRowToCanvas(this.engine, rowIdx, setIdx);
+      this._updateRowNav();
+    });
+    
+    document.getElementById('btn-next-row')?.addEventListener('click', () => {
+      const totalSets = this.dm.columnGroups || 1;
+      let rowIdx = this.dm.currentRowIndex;
+      let setIdx = (this.dm.currentSetIndex || 0) + 1;
+      
+      if (setIdx >= totalSets) {
+        if (rowIdx < this.dm.importedData.length - 1) {
+          rowIdx++;
+          setIdx = 0;
+        } else {
+          setIdx = totalSets - 1;
+        }
+      }
+      
+      this.dm.applyRowToCanvas(this.engine, rowIdx, setIdx);
+      this._updateRowNav();
+    });
     this.dm.on('dataLoaded', ({rows,headers}) => { this._renderDataTable(headers,rows); this._updateRowNav(); this.showToast(`✅ Loaded ${rows.length} rows`); });
     this.dm.on('rowApplied', ({rowIndex}) => { this._updateRowNav(); document.querySelectorAll('#data-table-body tr').forEach((r,i)=>r.classList.toggle('active-row',i===rowIndex)); });
   }
@@ -317,10 +350,20 @@ class UIController {
 
   _updateRowNav() {
     const total=this.dm.importedData.length, cur=this.dm.currentRowIndex;
+    const totalSets = this.dm.columnGroups || 1;
+    const currentSet = this.dm.currentSetIndex || 0;
     const el=document.getElementById('row-nav-info');
-    if (el) el.textContent=total>0?`Row ${cur+1} / ${total}`:'No data';
-    document.getElementById('btn-prev-row').disabled=cur<=0;
-    document.getElementById('btn-next-row').disabled=cur>=total-1;
+    
+    if (el) {
+      if (total > 0 && totalSets > 1) {
+        el.textContent = `Row ${cur+1}/${total} • Set ${currentSet+1}/${totalSets}`;
+      } else {
+        el.textContent = total > 0 ? `Row ${cur+1} / ${total}` : 'No data';
+      }
+    }
+    
+    document.getElementById('btn-prev-row').disabled = cur <= 0 && currentSet === 0;
+    document.getElementById('btn-next-row').disabled = cur >= total - 1 && currentSet >= totalSets - 1;
   }
 
   // ── Template Panel ────────────────────────────────────────
