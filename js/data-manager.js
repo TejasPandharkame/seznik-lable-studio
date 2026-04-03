@@ -16,16 +16,28 @@ class DataManager {
   // ── CSV Parser ────────────────────────────────────────────
   parseCSV(text) {
     const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 1) return [];
+    if (lines.length < 1) return { headers: [], rows: [] };
     const headers = this._parseCSVLine(lines[0]);
+    
+    // Detect "wide" format: repeated column groups
+    const uniqueHeaders = [...new Set(headers)];
+    const isWideFormat = uniqueHeaders.length < headers.length && headers.length > uniqueHeaders.length;
+    
+    // Store metadata about column groups
+    this.columnGroups = isWideFormat ? Math.floor(headers.length / uniqueHeaders.length) : 1;
+    this.uniqueHeaders = uniqueHeaders;
+    this.allHeaders = headers;
+    
+    // Normal format - just parse rows
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
       const values = this._parseCSVLine(lines[i]);
       const row = {};
-      headers.forEach((h, idx) => { row[h] = values[idx] ?? ''; });
+      headers.forEach((h, idx) => { row[h] = values[idx] !== undefined ? values[idx].trim() : ''; });
       rows.push(row);
     }
+    
     return { headers, rows };
   }
 
@@ -57,12 +69,25 @@ class DataManager {
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
             if (jsonData.length < 1) { resolve({ headers: [], rows: [] }); return; }
+            
             const headers = jsonData[0].map(String);
+            
+            // Detect "wide" format: repeated column groups
+            const uniqueHeaders = [...new Set(headers)];
+            const isWideFormat = uniqueHeaders.length < headers.length && headers.length > uniqueHeaders.length;
+            
+            // Store metadata
+            this.columnGroups = isWideFormat ? Math.floor(headers.length / uniqueHeaders.length) : 1;
+            this.uniqueHeaders = uniqueHeaders;
+            this.allHeaders = headers;
+            
+            // Parse rows normally (keep wide format)
             const rows = jsonData.slice(1).map(row => {
               const obj = {};
-              headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? String(row[i]) : ''; });
+              headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? String(row[i]).trim() : ''; });
               return obj;
             }).filter(r => Object.values(r).some(v => v));
+            
             resolve({ headers, rows });
           } else {
             reject(new Error('SheetJS not loaded'));
@@ -221,20 +246,37 @@ class DataManager {
   getBindings() { return { ...this.fieldBindings }; }
 
   // ── Apply row data to canvas elements ─────────────────────
-  applyRowToCanvas(engine, rowIndex) {
+  applyRowToCanvas(engine, rowIndex, setIndex = 0) {
     const row = this.importedData[rowIndex];
     if (!row) return;
     this.currentRowIndex = rowIndex;
+    this.currentSetIndex = setIndex;
 
     engine.elements.forEach(el => {
       const colName = this.fieldBindings[el.id];
-      if (colName && row[colName] !== undefined) {
-        if (el.type === 'text') el.text = row[colName];
-        else if (el.type === 'barcode' || el.type === 'qrcode') el.value = row[colName];
+      if (colName && row) {
+        // If we have column groups, get value from the correct group
+        let value;
+        if (this.columnGroups > 1 && this.uniqueHeaders) {
+          // Find which column in the group this binding refers to
+          const uniqueIdx = this.uniqueHeaders.indexOf(colName);
+          if (uniqueIdx !== -1) {
+            const actualColIdx = setIndex * this.uniqueHeaders.length + uniqueIdx;
+            const actualColName = this.allHeaders[actualColIdx];
+            value = row[actualColName];
+          }
+        } else {
+          value = row[colName];
+        }
+        
+        if (value !== undefined) {
+          if (el.type === 'text') el.text = value;
+          else if (el.type === 'barcode' || el.type === 'qrcode') el.value = value;
+        }
       }
     });
     engine.render();
-    this.emit('rowApplied', { rowIndex, row });
+    this.emit('rowApplied', { rowIndex, setIndex, row });
   }
 
   // ── Template import ────────────────────────────────────────
@@ -268,23 +310,43 @@ class DataManager {
 
   // ── PDF generation (using jsPDF + html2canvas fallback) ───
   async generatePDF(engine, allRows = false) {
-    const pages = allRows && this.importedData.length > 0 ? this.importedData.length : 1;
-    const { width, height } = engine.labelConfig;
+    const totalSets = this.columnGroups || 1;
+    const pages = allRows && this.importedData.length > 0 
+      ? this.importedData.length * totalSets 
+      : totalSets;
 
+    const { width, height } = engine.labelConfig;
     const pdfPages = [];
 
-    for (let i = 0; i < pages; i++) {
-      if (allRows && this.importedData.length > 0) {
-        this.applyRowToCanvas(engine, i);
-        await new Promise(r => setTimeout(r, 50));
+    if (allRows && this.importedData.length > 0) {
+      // Generate pages for all rows, iterating through sets
+      for (let i = 0; i < this.importedData.length; i++) {
+        for (let s = 0; s < totalSets; s++) {
+          this.applyRowToCanvas(engine, i, s);
+          await new Promise(r => setTimeout(r, 50));
+
+          const sel = engine.selected;
+          engine.deselect();
+          const imgData = engine.canvas.toDataURL('image/png');
+          if (sel) engine.select(sel.id);
+
+          pdfPages.push(imgData);
+        }
       }
+    } else {
+      // Single row (first row) with all sets
+      const rowIdx = 0;
+      for (let s = 0; s < totalSets; s++) {
+        this.applyRowToCanvas(engine, rowIdx, s);
+        await new Promise(r => setTimeout(r, 50));
 
-      const sel = engine.selected;
-      engine.deselect();
-      const imgData = engine.canvas.toDataURL('image/png');
-      if (sel) engine.select(sel.id);
+        const sel = engine.selected;
+        engine.deselect();
+        const imgData = engine.canvas.toDataURL('image/png');
+        if (sel) engine.select(sel.id);
 
-      pdfPages.push(imgData);
+        pdfPages.push(imgData);
+      }
     }
 
     return pdfPages;
