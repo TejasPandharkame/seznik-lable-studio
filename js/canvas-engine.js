@@ -567,15 +567,31 @@ class CanvasEngine {
 
   _drawHandles(ctx, el) {
     // Different color if hidden
-    const color = el.visible===false ? '#f97316' : '#2563eb';
+    const color = el.visible===false ? '#f97316' : '#2124f4';
+    
+    ctx.save();
+    
+    // Apply rotation if element is rotated
+    if (el.rotation) {
+      const cx = el.x + el.width / 2;
+      const cy = el.y + el.height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(el.rotation * Math.PI / 180);
+      ctx.translate(-cx, -cy);
+    }
+    
     ctx.strokeStyle=color; ctx.lineWidth=1; ctx.setLineDash([3,2]);
     ctx.strokeRect(el.x-0.5,el.y-0.5,el.width+1,el.height+1);
     ctx.setLineDash([]);
+    
     this._getHandles(el).forEach(h=>{
       ctx.fillStyle='#fff'; ctx.strokeStyle=color; ctx.lineWidth=1;
       ctx.fillRect(h.x-3.5,h.y-3.5,7,7); ctx.strokeRect(h.x-3.5,h.y-3.5,7,7);
     });
-    // Hidden label
+    
+    ctx.restore();
+    
+    // Hidden label (don't rotate this)
     if (el.visible===false) {
       ctx.fillStyle='rgba(249,115,22,0.9)';
       const label='HIDDEN';
