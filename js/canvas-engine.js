@@ -569,22 +569,33 @@ class CanvasEngine {
     // Different color if hidden
     const color = el.visible===false ? '#f97316' : '#2124f4';
     
+    // Get handles (already rotated if element is rotated)
+    const handles = this._getHandles(el);
+    
     ctx.save();
     
-    // Apply rotation if element is rotated
+    ctx.strokeStyle=color; ctx.lineWidth=1; ctx.setLineDash([3,2]);
+    
+    // Draw bounding box using the first and last handle positions
+    // For rotated elements, draw a polygon connecting all corner handles
     if (el.rotation) {
-      const cx = el.x + el.width / 2;
-      const cy = el.y + el.height / 2;
-      ctx.translate(cx, cy);
-      ctx.rotate(el.rotation * Math.PI / 180);
-      ctx.translate(-cx, -cy);
+      // Draw rotated rectangle by connecting corner handles
+      ctx.beginPath();
+      ctx.moveTo(handles[0].x, handles[0].y); // nw
+      ctx.lineTo(handles[2].x, handles[2].y); // ne
+      ctx.lineTo(handles[4].x, handles[4].y); // se
+      ctx.lineTo(handles[6].x, handles[6].y); // sw
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      // Non-rotated: simple rectangle
+      ctx.strokeRect(el.x-0.5,el.y-0.5,el.width+1,el.height+1);
     }
     
-    ctx.strokeStyle=color; ctx.lineWidth=1; ctx.setLineDash([3,2]);
-    ctx.strokeRect(el.x-0.5,el.y-0.5,el.width+1,el.height+1);
     ctx.setLineDash([]);
     
-    this._getHandles(el).forEach(h=>{
+    // Draw handles
+    handles.forEach(h=>{
       ctx.fillStyle='#fff'; ctx.strokeStyle=color; ctx.lineWidth=1;
       ctx.fillRect(h.x-3.5,h.y-3.5,7,7); ctx.strokeRect(h.x-3.5,h.y-3.5,7,7);
     });
@@ -604,6 +615,35 @@ class CanvasEngine {
   }
 
   _getHandles(el) {
+    // If element is rotated, calculate rotated handle positions
+    if (el.rotation) {
+      const cx = el.x + el.width / 2;
+      const cy = el.y + el.height / 2;
+      const angle = el.rotation * Math.PI / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      
+      const rotatePoint = (x, y) => {
+        const dx = x - cx;
+        const dy = y - cy;
+        return {
+          x: cx + dx * cos - dy * sin,
+          y: cy + dx * sin + dy * cos
+        };
+      };
+      
+      return [
+        {x: rotatePoint(el.x, el.y).x, y: rotatePoint(el.x, el.y).y, cursor:'nw-resize',dir:'nw'},
+        {x: rotatePoint(el.x+el.width/2, el.y).x, y: rotatePoint(el.x+el.width/2, el.y).y, cursor:'n-resize', dir:'n'},
+        {x: rotatePoint(el.x+el.width, el.y).x, y: rotatePoint(el.x+el.width, el.y).y, cursor:'ne-resize',dir:'ne'},
+        {x: rotatePoint(el.x+el.width, el.y+el.height/2).x, y: rotatePoint(el.x+el.width, el.y+el.height/2).y, cursor:'e-resize',dir:'e'},
+        {x: rotatePoint(el.x+el.width, el.y+el.height).x, y: rotatePoint(el.x+el.width, el.y+el.height).y, cursor:'se-resize',dir:'se'},
+        {x: rotatePoint(el.x+el.width/2, el.y+el.height).x, y: rotatePoint(el.x+el.width/2, el.y+el.height).y, cursor:'s-resize', dir:'s'},
+        {x: rotatePoint(el.x, el.y+el.height).x, y: rotatePoint(el.x, el.y+el.height).y, cursor:'sw-resize',dir:'sw'},
+        {x: rotatePoint(el.x, el.y+el.height/2).x, y: rotatePoint(el.x, el.y+el.height/2).y, cursor:'w-resize',dir:'w'},
+      ];
+    }
+    
     return [
       {x:el.x,           y:el.y,           cursor:'nw-resize',dir:'nw'},
       {x:el.x+el.width/2,y:el.y,           cursor:'n-resize', dir:'n'},
@@ -614,6 +654,30 @@ class CanvasEngine {
       {x:el.x,           y:el.y+el.height, cursor:'sw-resize',dir:'sw'},
       {x:el.x,           y:el.y+el.height/2,cursor:'w-resize',dir:'w'},
     ];
+  }
+
+  // Check if point is inside a rotated rectangle
+  _pointInRotatedRect(pos, el) {
+    if (!el.rotation) {
+      return pos.x >= el.x && pos.x <= el.x + el.width &&
+             pos.y >= el.y && pos.y <= el.y + el.height;
+    }
+    
+    // Transform point to element's local coordinate system
+    const cx = el.x + el.width / 2;
+    const cy = el.y + el.height / 2;
+    const angle = -el.rotation * Math.PI / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    
+    const dx = pos.x - cx;
+    const dy = pos.y - cy;
+    
+    const localX = cx + dx * cos - dy * sin;
+    const localY = cy + dx * sin + dy * cos;
+    
+    return localX >= el.x && localX <= el.x + el.width &&
+           localY >= el.y && localY <= el.y + el.height;
   }
 
   // ── Events ────────────────────────────────────────────────
@@ -658,15 +722,17 @@ class CanvasEngine {
       const h = this._getHandles(this.selected).find(h => Math.abs(h.x-pos.x)<8 && Math.abs(h.y-pos.y)<8);
       if (h) { this.resizing=true; this.resizeHandle=h.dir; this._resizeStart={...pos,el:{...this.selected}}; return; }
     }
-    const hit = [...this.elements].reverse().find(el => pos.x>=el.x&&pos.x<=el.x+el.width&&pos.y>=el.y&&pos.y<=el.y+el.height);
+    // Use rotated hit detection
+    const hit = [...this.elements].reverse().find(el => this._pointInRotatedRect(pos, el));
     if (hit) { this.select(hit.id); this.dragging=true; this.dragOffset={x:pos.x-hit.x,y:pos.y-hit.y}; }
     else this.deselect();
   }
 
   _onPointerMove(pos) {
     if (this.dragging&&this.selected) {
-      this.selected.x=Math.max(0,pos.x-this.dragOffset.x);
-      this.selected.y=Math.max(0,pos.y-this.dragOffset.y);
+      // Remove edge constraints - allow free movement
+      this.selected.x=pos.x-this.dragOffset.x;
+      this.selected.y=pos.y-this.dragOffset.y;
       this.render(); this.emit('update',this.selected);
     } else if (this.resizing&&this.selected) {
       this._handleResize(pos);
@@ -678,7 +744,20 @@ class CanvasEngine {
 
   _handleResize(pos) {
     const el=this.selected, s=this._resizeStart, dir=this.resizeHandle;
-    const dx=pos.x-s.x, dy=pos.y-s.y;
+    
+    // For rotated elements, transform the movement into local coordinates
+    let dx = pos.x - s.x;
+    let dy = pos.y - s.y;
+    
+    if (el.rotation) {
+      const angle = -el.rotation * Math.PI / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const localDx = dx * cos - dy * sin;
+      const localDy = dx * sin + dy * cos;
+      dx = localDx;
+      dy = localDy;
+    }
     
     // Check if this is a diagonal resize (maintain aspect ratio)
     const isDiagonal = (dir === 'nw' || dir === 'ne' || dir === 'se' || dir === 'sw');
@@ -707,14 +786,9 @@ class CanvasEngine {
         newWidth = newHeight * aspectRatio;
       }
       
-      // Use the smaller dimension to ensure proportional fit
-      if (dir.includes('e') || dir.includes('w')) {
-        el.width = newWidth;
-        el.height = newHeight;
-      } else {
-        el.width = newWidth;
-        el.height = newHeight;
-      }
+      // Apply dimensions
+      el.width = newWidth;
+      el.height = newHeight;
       
       // Adjust position for nw, ne, sw corners
       if (dir.includes('w')) {
