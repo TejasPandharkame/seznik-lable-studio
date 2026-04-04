@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>LabelStudio — Label Designer</title>
+  <title>LabelStudio - Seznik India</title>
   <link rel="stylesheet" href="css/styles.css"/>
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
   <!-- Real scannable barcodes -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <!-- QR Code generator -->
@@ -28,137 +30,72 @@
       <span class="brand-name">LabelStudio</span>
     </div>
 
-    <!-- Desktop menus -->
-    <div class="menu-item desktop-only">
-      <button>File</button>
-      <div class="menu-dropdown">
-        <button id="menu-new">📄 New Label</button>
-        <button id="menu-save">💾 Save Template</button>
-        <button id="menu-load">📂 Open Template</button>
-        <div class="menu-sep"></div>
-        <button id="menu-export-img">🖼 Export PNG</button>
-      </div>
-    </div>
-    <div class="menu-item desktop-only">
-      <button>Edit</button>
-      <div class="menu-dropdown">
-        <button onclick="window._engine?.undo()">↩ Undo</button>
-        <button onclick="window._engine?.redo()">↪ Redo</button>
-        <div class="menu-sep"></div>
-        <button onclick="window._engine?.duplicateSelected()">⧉ Duplicate</button>
-        <button onclick="window._engine?.deleteSelected()">🗑 Delete</button>
-      </div>
-    </div>
-    <div class="menu-item desktop-only">
-      <button>Arrange</button>
-      <div class="menu-dropdown">
-        <button onclick="window._engine?.bringForward()">⬆ Bring Forward</button>
-        <button onclick="window._engine?.sendBackward()">⬇ Send Backward</button>
-      </div>
-    </div>
-
     <!-- Zoom controls -->
     <div class="zoom-controls">
-      <button class="zbtn" id="btn-zoom-out">−</button>
+      <button class="zbtn" id="btn-zoom-out"><i class="bi bi-dash"></i></button>
       <span id="zoom-display" class="zoom-val">100%</span>
-      <button class="zbtn" id="btn-zoom-in">+</button>
-      <button class="zbtn" id="btn-zoom-fit" title="Fit">⤢</button>
+      <button class="zbtn" id="btn-zoom-in"><i class="bi bi-plus"></i></button>
+      <button class="zbtn" id="btn-zoom-fit" title="Fit"><i class="bi bi-fullscreen"></i></button>
     </div>
 
     <div class="menubar-spacer"></div>
 
-    <!-- Mobile: quick actions LEFT of burger -->
+    <!-- Mobile: quick action buttons -->
     <div class="mobile-action-strip mobile-only">
-      <button class="mact-btn" id="btn-m-undo"    disabled>↩</button>
-      <button class="mact-btn" id="btn-m-redo"    disabled>↪</button>
-      <button class="mact-btn" id="btn-m-delete">🗑</button>
-      <button class="mact-btn" id="btn-m-preview">👁</button>
-      <button class="mact-btn accent" id="btn-m-pdf">⬇ PDF</button>
+      <button class="mact-btn" id="btn-m-undo" disabled><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button class="mact-btn" id="btn-m-redo" disabled><i class="bi bi-arrow-clockwise"></i></button>
+      <button class="mact-btn" id="btn-duplicate" title="Duplicate"><i class="bi bi-copy"></i></button>
+      <button class="mact-btn" id="btn-m-delete"><i class="bi bi-trash"></i></button>
+      <button class="mact-btn" id="btn-m-preview" style="background:var(--success);color:#fff;"><i class="bi bi-eye"></i>Preview</button>
+      <!-- <button class="mact-btn accent" id="btn-m-pdf"><i class="bi bi-file-earmark-pdf"></i>Download</button> -->
     </div>
 
-    <!-- Burger -->
-    <button class="mact-btn burger mobile-only" id="btn-mobile-menu">☰</button>
-    <!-- Props -->
-    <button class="mact-btn mobile-only" id="btn-mobile-props">⚙</button>
+    <!-- Desktop PDF and Preview buttons -->
+    <button class="tbtn accent desktop-only" id="btn-download-pdf" style="margin-left:6px;flex-shrink:0;"><i class="bi bi-download"></i><span class="tl"> Download PDF</span></button>
+    <button class="tbtn desktop-only" id="btn-preview-pdf" style="margin-left:4px;flex-shrink:0;background:var(--success);color:#fff;border-color:transparent;"><i class="bi bi-printer"></i><span class="tl"> Preview/Print</span></button>
 
-    <!-- Desktop PDF -->
-    <button class="tbtn accent desktop-only" id="btn-download-pdf" style="margin-left:6px;flex-shrink:0;">⬇ Download PDF</button>
+    <!-- Burger -->
+    <button class="mact-btn burger mobile-only" id="btn-mobile-menu"><i class="bi bi-list"></i></button>
+    <!-- Props -->
+    <button class="mact-btn mobile-only" id="btn-mobile-props"><i class="bi bi-gear"></i></button>
   </header>
 
   <!-- ════════ TOOLBAR (desktop) ══════════════════════════ -->
   <div class="toolbar desktop-only" role="toolbar">
     <div class="tgroup">
-      <button class="tbtn" id="btn-undo" disabled>↩<span class="tl"> Undo</span></button>
-      <button class="tbtn" id="btn-redo" disabled>↪<span class="tl"> Redo</span></button>
+      <button class="tbtn" id="btn-new-label-tb"><i class="bi bi-file-earmark-plus"></i><span class="tl"> New Label</span></button>
+      <button class="tbtn" id="btn-export-png-tb"><i class="bi bi-image"></i><span class="tl"> Export PNG</span></button>
     </div>
     <div class="tsep"></div>
     <div class="tgroup">
-      <button class="tbtn" id="btn-add-text">T<span class="tl"> Text</span></button>
-      <button class="tbtn" id="btn-add-barcode">▐▌<span class="tl"> Barcode</span></button>
-      <button class="tbtn" id="btn-add-qr">⊞<span class="tl"> QR</span></button>
-      <button class="tbtn" id="btn-add-image">🖼<span class="tl"> Image</span></button>
+      <button class="tbtn" id="btn-undo" disabled><i class="bi bi-arrow-counterclockwise"></i><span class="tl"> Undo</span></button>
+      <button class="tbtn" id="btn-redo" disabled><i class="bi bi-arrow-clockwise"></i><span class="tl"> Redo</span></button>
     </div>
     <div class="tsep"></div>
     <div class="tgroup">
-      <button class="tbtn" id="btn-add-rect">▭<span class="tl"> Rect</span></button>
-      <button class="tbtn" id="btn-add-roundrect">▢<span class="tl"> Round</span></button>
-      <button class="tbtn" id="btn-add-ellipse">◯<span class="tl"> Ellipse</span></button>
-      <button class="tbtn" id="btn-add-line">━<span class="tl"> Line</span></button>
+      <button class="tbtn" id="btn-bring-forward" title="Bring Forward"><i class="bi bi-arrow-up-short"></i></button>
+      <button class="tbtn" id="btn-send-backward" title="Send Backward"><i class="bi bi-arrow-down-short"></i></button>
+      <button class="tbtn" id="btn-duplicate" title="Duplicate"><i class="bi bi-copy"></i></button>
+      <button class="tbtn" id="btn-delete" title="Delete"><i class="bi bi-trash"></i></button>
+      <button class="tbtn" id="btn-clear" title="Clear"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="tsep"></div>
     <div class="tgroup">
-      <button class="tbtn" id="btn-bring-forward" title="Bring Forward">⬆</button>
-      <button class="tbtn" id="btn-send-backward" title="Send Backward">⬇</button>
-      <button class="tbtn" id="btn-duplicate" title="Duplicate">⧉</button>
-      <button class="tbtn" id="btn-delete" title="Delete">🗑</button>
-      <button class="tbtn" id="btn-clear" title="Clear">✕</button>
-    </div>
-    <div class="tsep"></div>
-    <div class="tgroup">
-      <button class="tbtn" id="btn-preview-pdf">👁<span class="tl"> Preview</span></button>
-      <button class="tbtn" id="btn-export-template">📤<span class="tl"> Save</span></button>
+      <button class="tbtn" id="btn-export-template"><i class="bi bi-upload"></i><span class="tl"> Save Template</span></button>
     </div>
   </div>
 
   <!-- ════════ SIDEBAR ════════════════════════════════════ -->
   <aside class="sidebar" id="sidebar">
-    <button class="drawer-close mobile-only" id="btn-close-sidebar">✕</button>
+    <button class="drawer-close mobile-only" id="btn-close-sidebar"><i class="bi bi-x"></i></button>
 
-    <!-- Mobile-only File/Edit/Arrange sections inside drawer -->
+    <!-- Mobile-only quick actions in drawer -->
     <div class="mobile-only mobile-menus">
       <div class="mm-group">
-        <div class="mm-group-title">
-          <span>📄 File</span>
-          <span class="mm-arrow">▼</span>
-        </div>
+        <div class="mm-group-title"><i class="bi bi-lightning-charge"></i> Quick Actions</div>
         <div class="mm-group-body">
-          <button class="mm-btn" id="menu-new-m">New Label</button>
-          <button class="mm-btn" id="menu-save-m">Save Template</button>
-          <button class="mm-btn" id="menu-load-m">Open Template</button>
-          <button class="mm-btn" id="menu-export-img-m">Export PNG</button>
-        </div>
-      </div>
-      <div class="mm-group">
-        <div class="mm-group-title">
-          <span>✏️ Edit</span>
-          <span class="mm-arrow">▼</span>
-        </div>
-        <div class="mm-group-body">
-          <button class="mm-btn" id="menu-undo-m">↩ Undo</button>
-          <button class="mm-btn" id="menu-redo-m">↪ Redo</button>
-          <button class="mm-btn" id="menu-dup-m">Duplicate Selected</button>
-          <button class="mm-btn" id="menu-delete-m">🗑 Delete Selected</button>
-          <button class="mm-btn" id="menu-clear-m">Clear All</button>
-        </div>
-      </div>
-      <div class="mm-group">
-        <div class="mm-group-title">
-          <span>📐 Arrange</span>
-          <span class="mm-arrow">▼</span>
-        </div>
-        <div class="mm-group-body">
-          <button class="mm-btn" id="menu-fwd-m">Bring Forward</button>
-          <button class="mm-btn" id="menu-back-m">Send Backward</button>
+          <button class="mm-btn" id="menu-new-m"><i class="bi bi-file-earmark-plus me-1"></i>New Label</button>
+          <button class="mm-btn" id="menu-export-png-m"><i class="bi bi-image me-1"></i>Export PNG</button>
         </div>
       </div>
       <div class="divider" style="margin:8px 0;"></div>
@@ -185,6 +122,8 @@
           <button class="size-preset" data-size="25x15">25×15</button>
         </div>
 
+        <div class="divider"></div>
+        <span class="custome-size">Select Custom Size</span>
         <div class="mm-inputs">
           <div class="mm-field">
             <label>W (mm)</label>
@@ -196,12 +135,16 @@
           </div>
         </div>
 
-        <div class="orient-row">
+        <div class="divider"></div>
+        <div class="orient-row-col">
           <span class="orient-label">Orientation</span>
-          <button class="orient-btn active" data-orient="landscape">⬛ Landscape</button>
-          <button class="orient-btn" data-orient="portrait">▮ Portrait</button>
+          <div class="orient-btns-row">
+            <button class="orient-btn active" data-orient="landscape"><i class="bi bi-aspect-ratio"></i> Landscape</button>
+            <button class="orient-btn" data-orient="portrait"><i class="bi bi-aspect-ratio-fill"></i> Portrait</button>
+          </div>
         </div>
 
+        <div class="divider"></div>
         <div class="prop-row" style="margin-top:8px;">
           <label class="prop-label">Background</label>
           <input type="color" id="label-bg" value="#ffffff" style="flex:1;max-width:54px;"/>
@@ -210,14 +153,14 @@
         <div class="divider"></div>
         <div class="section-title">Add Elements</div>
         <div class="elem-grid">
-          <button class="elem-btn" onclick="document.getElementById('btn-add-text').click()">✎ Text</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-barcode').click()">▐▌ Barcode</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-qr').click()">⊞ QR Code</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-image').click()">🖼 Image</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-rect').click()">▭ Rect</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-roundrect').click()">▢ curve</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-ellipse').click()">◯ Ellipse</button>
-          <button class="elem-btn" onclick="document.getElementById('btn-add-line').click()">━ Line</button>
+          <button class="elem-btn" onclick="window._engine?.addText()"><i class="bi bi-fonts"></i> Text</button>
+          <button class="elem-btn" onclick="window._engine?.addBarcode()"><i class="bi bi-upc-scan"></i> Barcode</button>
+          <button class="elem-btn" onclick="window._engine?.addQRCode()"><i class="bi bi-qr-code"></i> QR Code</button>
+          <button class="elem-btn" onclick="document.getElementById('img-upload').click()"><i class="bi bi-image"></i> Image</button>
+          <button class="elem-btn" onclick="window._engine?.addShape({shape:'rect'})"><i class="bi bi-square"></i> Rect</button>
+          <button class="elem-btn" onclick="window._engine?.addShape({shape:'roundrect'})"><i class="bi bi-square-fill"></i> Curve Rect</button>
+          <button class="elem-btn" onclick="window._engine?.addShape({shape:'ellipse'})"><i class="bi bi-circle"></i> Circle</button>
+          <button class="elem-btn" onclick="window._engine?.addShape({shape:'line',height:4})"><i class="bi bi-dash-lg"></i> Line</button>
         </div>
        
         <footer>
@@ -229,15 +172,15 @@
       <div class="tab-panel" id="tab-data">
         <div class="section-title">Import CSV / Excel / JSON</div>
         <div class="drop-zone" id="data-drop-zone">
-          <span class="drop-icon">📊</span>
+          <span class="drop-icon"><i class="bi bi-file-earmark-spreadsheet"></i></span>
           <strong>Drop CSV, Excel, or JSON here</strong><br/>or click to browse
         </div>
         <input type="file" id="data-file-input" accept=".csv,.xlsx,.xls,.json" style="display:none"/>
         <div class="divider"></div>
         <div class="row-nav">
-          <button class="btn btn-sm" id="btn-prev-row" disabled>◀</button>
+          <button class="btn btn-sm" id="btn-prev-row" disabled><i class="bi bi-chevron-left"></i></button>
           <span id="row-nav-info">No data</span>
-          <button class="btn btn-sm" id="btn-next-row" disabled>▶</button>
+          <button class="btn btn-sm" id="btn-next-row" disabled><i class="bi bi-chevron-right"></i></button>
         </div>
         <div class="data-table-wrap">
           <table class="data-table">
@@ -257,7 +200,7 @@
         <div class="divider"></div>
         <div class="section-title">Import Template</div>
         <div class="drop-zone" id="template-drop-zone">
-          <span class="drop-icon">📁</span>
+          <span class="drop-icon"><i class="bi bi-folder"></i></span>
           <strong>Drop JSON or Image</strong><br/>.json template or background image
         </div>
         <input type="file" id="template-file-input" accept=".json,.png,.jpg,.jpeg,.webp" style="display:none"/>
@@ -284,7 +227,7 @@
 
   <!-- ════════ PROPERTIES PANEL ═══════════════════════════ -->
   <aside class="props-panel" id="props-panel">
-    <button class="drawer-close mobile-only" id="btn-close-props">✕</button>
+    <button class="drawer-close mobile-only" id="btn-close-props"><i class="bi bi-x-lg"></i></button>
 
     <div class="panel-header">
       <span>Properties</span>
@@ -293,7 +236,7 @@
 
     <div class="panel-body">
       <div id="no-selection-msg">
-        <span class="empty-icon">✦</span>
+        <span class="empty-icon"><i class="bi bi-cursor"></i></span>
         <span>Select an element<br/>to edit properties</span>
       </div>
 
@@ -481,9 +424,9 @@
           <div class="prop-row">
             <label class="prop-label">Text Alignment</label>
             <div class="align-btns">
-              <button class="align-btn active" data-align="left"   title="Left">⫷</button>
-              <button class="align-btn"        data-align="center" title="Center">≡</button>
-              <button class="align-btn"        data-align="right"  title="Right">⫸</button>
+              <button class="align-btn active" data-align="left"   title="Left" style="padding-left: 4px;padding-right: 4px;">Left</button>
+              <button class="align-btn"        data-align="center" title="Center" style="padding-left: 4px;padding-right: 4px;">Center</button>
+              <button class="align-btn"        data-align="right"  title="Right" style="padding-left: 4px;padding-right: 4px;">Right</button>
             </div>
           </div>
           <input type="hidden" id="prop-font-weight"     value="normal"/>
@@ -550,7 +493,7 @@
               <option value="bw">Black &amp; White</option>
             </select>
           </div>
-          <button class="btn btn-sm btn-block" onclick="document.getElementById('img-replace').click()">🔄 Replace Image</button>
+          <button class="btn btn-sm btn-block" onclick="document.getElementById('img-replace').click()"><i class="bi bi-arrow-repeat"></i> Replace Image</button>
           <input type="file" id="img-replace" accept="image/*" style="display:none"/>
         </div>
 
@@ -578,11 +521,11 @@
 <div id="pdf-modal-overlay">
   <div class="pdf-modal">
     <div class="pdf-modal-header">
-      <h3>📄 PDF Preview</h3>
+      <h3><i class="bi bi-file-earmark-pdf"></i> PDF Preview</h3>
       <div class="pdf-modal-actions">
-        <button class="btn btn-success" id="btn-modal-print">🖨️ Print PDF</button>
-        <button class="btn btn-sm" id="btn-modal-download">⬇ Download</button>
-        <button class="btn-close" id="btn-modal-close">✕</button>
+        <button class="btn btn-success" id="btn-modal-print"><i class="bi bi-printer"></i> Print PDF</button>
+        <button class="btn btn-sm" id="btn-modal-download"><i class="bi bi-download"></i> Download</button>
+        <button class="btn-close" id="btn-modal-close"><i class="bi bi-x-lg"></i></button>
       </div>
     </div>
     <div class="pdf-modal-options">
@@ -622,15 +565,10 @@
     }
   });
 
-  // Demo label on load
+  // Welcome text on load
   setTimeout(() => {
     const W=engine.labelWidthPx, H=engine.labelHeightPx;
-    engine.addShape({shape:'roundrect',x:4,y:4,width:W-8,height:H-8,strokeColor:'#3b82f6',fillColor:'#f0f6ff',lineWidth:2,radius:12});
-    engine.addText({x:16,y:14,width:W-32,height:36,text:'MY PRODUCT',fontSize:22,fontWeight:'bold',color:'#1a1a2e',align:'center'});
-    engine.addText({x:16,y:52,width:W-32,height:18,text:'Model: PRD-001  •  SKU: 12345',fontSize:11,color:'#555',align:'center'});
-    engine.addBarcode({x:70,y:82,width:200,height:70,value:'123456789012',format:'CODE128'});
-    engine.addText({x:16,y:H-46,width:120,height:28,text:'$24.99',fontSize:17,fontWeight:'bold',color:'#e53935'});
-    engine.addQRCode({x:W-100,y:H-100,width:86,height:86,value:'https://example.com',qrType:0});
+    engine.addText({x:16,y:H/2-20,width:W-32,height:40,text:'Let\'s start design',fontSize:20,fontWeight:'bold',color:'#94a3b8',align:'center'});
     engine.deselect();
   }, 400);
 </script>
