@@ -8,7 +8,56 @@ class UIController {
   constructor(engine, dataManager) {
     this.engine = engine;
     this.dm     = dataManager;
+    this.loadedFonts = new Set(); // Track dynamically loaded Google Fonts
     this._init();
+  }
+
+  // ── Google Fonts dynamic loader ───────────────────────────
+  // Fonts already loaded in styles.css
+  _preloadedFonts = new Set(['Inter', 'JetBrains Mono']);
+  
+  _googleFonts = new Set([
+    'Roboto','Open Sans','Lato','Montserrat','Poppins','Raleway','Nunito','Ubuntu',
+    'Merriweather','Playfair Display','Oswald','Rubik','Work Sans','Fira Sans',
+    'PT Sans','Source Sans Pro','Quicksand','Barlow','Karla','Libre Baskerville',
+    'Inconsolata','Space Grotesk','DM Sans','Manrope','Bebas Neue','Anton','Lobster',
+    'Pacifico','Righteous','Permanent Marker','Fredoka One','Press Start 2P','Orbitron',
+    'Exo 2','Titillium Web','Asap','Mukta','Hind','Kanit','Josefin Sans','Cabin',
+    'Archivo','Overpass','Prompt','Teko','Rajdhani','Dosis','Abel','Oxygen',
+    'Crimson Text','Vollkorn','Bitter','Lora','EB Garamond','Libre Caslon Text',
+    'Spectral','Cormorant Garamond','Old Standard TT','Philosopher'
+  ]);
+
+  async _loadGoogleFont(fontName) {
+    // Skip if already loaded, preloaded, or if it's a system font
+    if (this.loadedFonts.has(fontName)) return true;
+    if (this._preloadedFonts.has(fontName)) return true;
+    if (!this._googleFonts.has(fontName)) return true; // System font, no need to load
+
+    try {
+      const family = fontName.replace(/ /g, '+');
+      const link = document.createElement('link');
+      link.href = `https://fonts.googleapis.com/css2?family=${family}:wght@300;400;500;600;700&family=${family}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap`;
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+
+      // Wait for font to be ready
+      if (document.fonts && document.fonts.load) {
+        await document.fonts.load(`400 16px "${fontName}"`);
+        await document.fonts.load(`700 16px "${fontName}"`);
+        await document.fonts.load(`italic 16px "${fontName}"`);
+      } else {
+        // Fallback for browsers without FontFaces API
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      this.loadedFonts.add(fontName);
+      console.log(`✅ Font loaded: ${fontName}`);
+      return true;
+    } catch (e) {
+      console.warn(`⚠️ Failed to load font: ${fontName}`, e);
+      return false;
+    }
   }
 
   _init() {
@@ -31,14 +80,10 @@ class UIController {
   // ── Toolbar ───────────────────────────────────────────────
   _bindToolbar() {
     const map = {
-      'btn-add-text':      () => this.engine.addText(),
-      'btn-add-barcode':   () => this.engine.addBarcode(),
-      'btn-add-qr':        () => this.engine.addQRCode(),
-      'btn-add-rect':      () => this.engine.addShape({shape:'rect'}),
-      'btn-add-roundrect': () => this.engine.addShape({shape:'roundrect'}),
-      'btn-add-ellipse':   () => this.engine.addShape({shape:'ellipse'}),
-      'btn-add-line':      () => this.engine.addShape({shape:'line',height:4}),
-      'btn-add-image':     () => document.getElementById('img-upload').click(),
+      // File menu items in toolbar
+      'btn-new-label-tb':  () => { if (confirm('Start new label?')) this.engine.clear(); },
+      'btn-export-png-tb': () => { const d=this.engine.exportImage('png',true); const a=document.createElement('a'); a.href=d; a.download='label.png'; a.click(); this.showToast('✅ PNG exported!'); },
+      // Edit
       'btn-undo':          () => this.engine.undo(),
       'btn-redo':          () => this.engine.redo(),
       'btn-delete':        () => this.engine.deleteSelected(),
@@ -46,6 +91,7 @@ class UIController {
       'btn-bring-forward': () => this.engine.bringForward(),
       'btn-send-backward': () => this.engine.sendBackward(),
       'btn-clear':         () => { if (confirm('Clear all elements?')) this.engine.clear(); },
+      // Preview/Print
       'btn-preview-pdf':   () => this.openPDFPreview(),
       'btn-download-pdf':  () => this.downloadPDF(),
       'btn-export-template': () => this.exportTemplate(),
@@ -155,8 +201,23 @@ class UIController {
     ];
     inputs.forEach(id => {
       const el = document.getElementById(id); if (!el) return;
-      el.addEventListener(el.type==='checkbox' ? 'change' : 'input', () => this._applyPropChange(id, el));
+      const eventType = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
+      el.addEventListener(eventType, () => this._applyPropChange(id, el));
     });
+
+    // Special handling for font family on mobile: also listen to 'input' event
+    // This fixes the issue where 'change' doesn't fire reliably on mobile
+    const fontSelect = document.getElementById('prop-font-family');
+    if (fontSelect) {
+      fontSelect.addEventListener('input', async (e) => {
+        const fontName = e.target.value;
+        // Load the font if it's a Google Font
+        await this._loadGoogleFont(fontName);
+        this._applyPropChange('prop-font-family', e.target);
+        // Re-render canvas after font loads
+        this.engine.render();
+      });
+    }
   }
 
   _applyPropChange(id, el) {
@@ -218,6 +279,8 @@ class UIController {
         this._sv('prop-text-color',  el.color);
         this._syncFormatButtons(el);
         this._syncAlignButtons(el);
+        // Preload the font if it's a Google Font
+        this._loadGoogleFont(el.fontFamily);
         break;
       case 'barcode':
         show(['prop-group-visibility','prop-group-position','prop-group-barcode']);
@@ -267,8 +330,10 @@ class UIController {
     this.engine.on('select', el => this._updatePropertyPanel(el));
     this.engine.on('update', el => this._updatePropertyPanel(el));
     this.engine.on('history', ({canUndo, canRedo}) => {
-      ['btn-undo','btn-m-undo'].forEach(id => { const b=document.getElementById(id); if (b) b.disabled=!canUndo; });
-      ['btn-redo','btn-m-redo'].forEach(id => { const b=document.getElementById(id); if (b) b.disabled=!canRedo; });
+      const ub=document.getElementById('btn-undo'); if(ub) ub.disabled=!canUndo;
+      const rb=document.getElementById('btn-redo'); if(rb) rb.disabled=!canRedo;
+      const um=document.getElementById('btn-m-undo'); if(um) um.disabled=!canUndo;
+      const rm=document.getElementById('btn-m-redo'); if(rm) rm.disabled=!canRedo;
     });
     this.engine.on('configChanged', cfg => {
       const wEl=document.getElementById('label-width-mm');
@@ -670,23 +735,11 @@ class UIController {
 
   // ── Menu ──────────────────────────────────────────────────
   _bindMenuActions() {
-    document.getElementById('menu-new')?.addEventListener('click',        () => { if (confirm('Start new label?')) this.engine.clear(); });
-    document.getElementById('menu-save')?.addEventListener('click',       () => this.exportTemplate());
-    document.getElementById('menu-load')?.addEventListener('click',       () => document.getElementById('template-file-input')?.click());
-    document.getElementById('menu-export-img')?.addEventListener('click', () => { const d=this.engine.exportImage('png',true); const a=document.createElement('a'); a.href=d; a.download='label.png'; a.click(); this.showToast('✅ PNG exported!'); });
-    
-    // Mobile menu actions
-    document.getElementById('menu-new-m')?.addEventListener('click',      () => { if (confirm('Start new label?')) this.engine.clear(); this.closeMobileDrawers(); });
-    document.getElementById('menu-save-m')?.addEventListener('click',     () => { this.exportTemplate(); this.closeMobileDrawers(); });
-    document.getElementById('menu-load-m')?.addEventListener('click',     () => { document.getElementById('template-file-input')?.click(); this.closeMobileDrawers(); });
-    document.getElementById('menu-export-img-m')?.addEventListener('click', () => { const d=this.engine.exportImage('png',true); const a=document.createElement('a'); a.href=d; a.download='label.png'; a.click(); this.closeMobileDrawers(); });
-    document.getElementById('menu-undo-m')?.addEventListener('click',     () => { this.engine.undo(); this.closeMobileDrawers(); });
-    document.getElementById('menu-redo-m')?.addEventListener('click',     () => { this.engine.redo(); this.closeMobileDrawers(); });
-    document.getElementById('menu-delete-m')?.addEventListener('click',   () => { this.engine.deleteSelected(); this.closeMobileDrawers(); });
-    document.getElementById('menu-dup-m')?.addEventListener('click',      () => { this.engine.duplicateSelected(); this.closeMobileDrawers(); });
-    document.getElementById('menu-clear-m')?.addEventListener('click',    () => { if (confirm('Clear all?')) this.engine.clear(); this.closeMobileDrawers(); });
-    document.getElementById('menu-fwd-m')?.addEventListener('click',      () => { this.engine.bringForward(); this.closeMobileDrawers(); });
-    document.getElementById('menu-back-m')?.addEventListener('click',     () => { this.engine.sendBackward(); this.closeMobileDrawers(); });
+    // Mobile menu actions (File only)
+    document.getElementById('menu-new-m')?.addEventListener('click',        () => { if (confirm('Start new label?')) this.engine.clear(); this.closeMobileDrawers(); });
+    document.getElementById('menu-export-png-m')?.addEventListener('click', () => { const d=this.engine.exportImage('png',true); const a=document.createElement('a'); a.href=d; a.download='label.png'; a.click(); this.showToast('✅ PNG exported!'); this.closeMobileDrawers(); });
+    document.getElementById('menu-save-m')?.addEventListener('click',       () => { this.exportTemplate(); this.closeMobileDrawers(); });
+    document.getElementById('menu-load-m')?.addEventListener('click',       () => { document.getElementById('template-file-input')?.click(); this.closeMobileDrawers(); });
   }
 
   // ── Tabs ──────────────────────────────────────────────────
