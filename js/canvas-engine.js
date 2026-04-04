@@ -125,7 +125,7 @@ class CanvasEngine {
       x: o.x ?? 20, y: o.y ?? 60, width: o.width ?? 160, height: o.height ?? 55,
       value: o.value ?? '123456789012', format: o.format ?? 'CODE128',
       showText: o.showText ?? true, rotation: o.rotation ?? 0,
-      color: o.color ?? '#000000', bgColor: o.bgColor ?? '#ffffff',
+      color: o.color ?? '#000000', bgColor: o.bgColor ?? 'transparent',
     };
     this.elements.push(el); this.select(el.id); this.saveHistory(); return el;
   }
@@ -359,14 +359,17 @@ class CanvasEngine {
 
   // ── Real scannable barcode via JsBarcode ──────────────────
   _drawBarcode(ctx, el) {
-    ctx.fillStyle = el.bgColor || '#ffffff';
-    ctx.fillRect(el.x, el.y, el.width, el.height);
+    // Only fill background if not transparent
+    if (el.bgColor && el.bgColor !== 'transparent') {
+      ctx.fillStyle = el.bgColor;
+      ctx.fillRect(el.x, el.y, el.width, el.height);
+    }
 
     const showText = el.showText !== false;
     const cacheKey = [
       el.id, el.value, el.format, showText,
       el.width, el.height,
-      el.color || '#000000', el.bgColor || '#ffffff'
+      el.color || '#000000', el.bgColor || 'transparent'
     ].join('_');
 
     // Device-pixel target for this element (ctx is scaled by RENDER_SCALE)
@@ -423,7 +426,7 @@ class CanvasEngine {
               marginRight: margin,
               marginTop: 0,
               marginBottom: 0,
-              background: el.bgColor || '#ffffff',
+              background: (el.bgColor && el.bgColor !== 'transparent') ? el.bgColor : 'transparent',
               lineColor: el.color || '#000000',
               width: moduleWidth,
               height
