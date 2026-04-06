@@ -88,6 +88,7 @@ class UIController {
       'btn-redo':          () => this.engine.redo(),
       'btn-delete':        () => this.engine.deleteSelected(),
       'btn-duplicate':     () => this.engine.duplicateSelected(),
+      'btn-duplicate-tb':     () => this.engine.duplicateSelected(),
       'btn-bring-forward': () => this.engine.bringForward(),
       'btn-send-backward': () => this.engine.sendBackward(),
       'btn-clear':         () => { if (confirm('Clear all elements?')) this.engine.clear(); },
